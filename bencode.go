@@ -226,7 +226,7 @@ func decodeString(data []byte) (decData interface{}, size int, err error) {
 	// 反向校验utf-8合法性
 	data = data[endIndex + 1 : endIndex + 1 + valueLen]
 	for {
-		if char, size := utf8.DecodeLastRune(data); char == utf8.RuneError {
+		if char, size := utf8.DecodeLastRune(data[:valueLen]); char == utf8.RuneError {
 			if size != 0 { // utf-8序列不合法
 				goto ERROR
 			} else { // 全部解析完成
@@ -234,7 +234,6 @@ func decodeString(data []byte) (decData interface{}, size int, err error) {
 			}
 		} else {
 			valueLen -= size
-			data = data[endIndex + 1 : endIndex + 1 + valueLen]
 		}
 	}
 	return value, size, nil
