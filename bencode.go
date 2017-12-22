@@ -15,8 +15,8 @@ import (
 
 	字符串(utf-8)：  长度:字符串
 	整形：i数字e
-	列表：l嵌套内容e
-	字典：d嵌套内容e
+	列表：l嵌套内容e, 嵌套内容为其他bencode编码的对象
+	字典：d嵌套内容e, 嵌套内容为成对出现的beancode编码的string key和对象
 */
 
 func encodeString(data string) (encData []byte, err error) {
@@ -96,11 +96,80 @@ func Encode(data interface{}) ([]byte, error) {
 }
 
 func decodeDict(data []byte) (decData interface{}, size int, err error) {
-	return
+	var (
+		curIndex int
+		elemMap map[string]interface{} = map[string]interface{}{}
+		key interface{}
+		strKey string
+		value interface{}
+		keySize int
+		valueSize int
+		isString bool
+	)
+	if len(data) < 2 || data[0] != 'd' {
+		goto ERROR
+	}
+
+	curIndex = 1
+	for curIndex < len(data) {
+		// 判断下一个字节是否为字典结束符
+		if data[curIndex] == 'e' {
+			break
+		}
+		// 解析string key
+		if key, keySize, err = decode(data[curIndex:]); err != nil {
+			goto ERROR
+		}
+		if strKey, isString = key.(string); !isString {
+			goto ERROR
+		}
+		curIndex += keySize
+		// 解析value
+		if value, valueSize, err = decode(data[curIndex:]); err != nil {
+			goto ERROR
+		}
+		elemMap[strKey] = value
+		curIndex += valueSize
+	}
+	if curIndex == len(data) { // 未找到e结束符
+		goto ERROR
+	}
+	return elemMap, curIndex + 1, nil
+
+ERROR:
+	return nil, 0, errors.New("invalid dict")
 }
 
 func decodeList(data []byte) (decData interface{}, size int, err error) {
-	return
+	var (
+		curIndex int
+		elemList []interface{}
+		elem interface{}
+		elemSize int
+	)
+	if len(data) < 2 || data[0] != 'l' {
+		goto ERROR
+	}
+
+	curIndex = 1
+	for curIndex < len(data) {
+		// 判断下一个字节是否为列表结束符
+		if data[curIndex] == 'e' {
+			break
+		}
+		if elem, elemSize, err = decode(data[curIndex:]); err != nil {
+			goto ERROR
+		}
+		elemList = append(elemList, elem)
+		curIndex += elemSize
+	}
+	if curIndex == len(data) { // 未找到e结束符
+		goto ERROR
+	}
+	return elemList, curIndex + 1, nil
+
+ERROR:
+	return nil, 0, errors.New("invalid list")
 }
 
 func decodeInt(data []byte) (decData interface{}, size int, err error) {
@@ -193,7 +262,11 @@ func decode(data []byte) (decData interface{}, size int, err error) {
 	解码函数
 */
 func Decode(data []byte) (decData interface{}, err error) {
-	decData, _, err = decode(data)
+	var size int
+	decData, size, err = decode(data)
+	if size != len(data) {
+		return nil, errors.New("invalid data")
+	}
 	return decData, err
 }
 

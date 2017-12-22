@@ -35,4 +35,14 @@ func main() {
 	if decData, err := dht.Decode(encStrData); err == nil {
 		fmt.Println("decData=", decData)
 	}
+
+	encListData := []byte("l2:abl3:mmm1:ai5123eee")
+	if decData, err := dht.Decode(encListData); err == nil {
+		fmt.Println("decData=", decData)
+	}
+
+	encDictData := []byte("d2:abd2:cdl2:fgi5ed3:bbbi0eeeee")
+	if decData, err := dht.Decode(encDictData); err == nil {
+		fmt.Println("decData=", decData)
+	}
 }
