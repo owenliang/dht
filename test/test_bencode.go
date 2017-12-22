@@ -41,7 +41,7 @@ func main() {
 		fmt.Println("decData=", decData)
 	}
 
-	encDictData := []byte("d2:abd2:cdl2:fgi5ed3:bbbi0eeeee")
+	encDictData := []byte("d2:abd2:cdl2:fgi5ed9:小电影i0eeeee")
 	if decData, err := dht.Decode(encDictData); err == nil {
 		fmt.Println("decData=", decData)
 	}
