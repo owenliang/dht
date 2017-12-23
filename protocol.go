@@ -124,7 +124,7 @@ func ParseCompactNode(nodeInfo string) (*CompactNode, error) {
 	compactNode := &CompactNode{}
 	compactNode.Id = nodeInfo[0:20]
 	port := binary.BigEndian.Uint16([]byte(nodeInfo[24:26]))
-	compactNode.Address = fmt.Sprintf("%d:%d:%d:%d:%d", nodeInfo[20], nodeInfo[21], nodeInfo[22], nodeInfo[23], port)
+	compactNode.Address = fmt.Sprintf("%d.%d.%d.%d:%d", nodeInfo[20], nodeInfo[21], nodeInfo[22], nodeInfo[23], port)
 	return compactNode, nil
 }
 
@@ -133,7 +133,7 @@ func ParsePeerInfo(peerInfo string) (string, error) {
 		return "", errors.New("compact peer invalid")
 	}
 	port := binary.BigEndian.Uint16([]byte(peerInfo[4:6]))
-	return fmt.Sprintf("%d:%d:%d:%d:%d", peerInfo[0], peerInfo[1], peerInfo[2], peerInfo[3], port), nil
+	return fmt.Sprintf("%d.%d.%d.%d:%d", peerInfo[0], peerInfo[1], peerInfo[2], peerInfo[3], port), nil
 }
 
 func ParsePingResponse(transactionId string, benDict map[string]interface{}) (response *PingResponse, err error) {
