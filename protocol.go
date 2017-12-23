@@ -11,7 +11,7 @@ import (
 
 type ProtocolBase struct {
 	TransactionId string // t: 请求唯一ID标识
-	Type string // y: 消息类型(q,r)
+	Type string // y: 消息类型(q,r,e)
 	Id string	// id（request是请求方id, response是应答方id)
 }
 

@@ -42,10 +42,13 @@ func (krpc *KRPC)ReadLoop() {
 		response interface{}
 		respDict map[string]interface{}
 
-	 	iTranId interface{}
 		transactionId string
+		msgType string
+
+		iField interface{}
 		exist bool
-		tranOk bool
+		typeOk bool
+
 	)
 	for {
 		if bufSize, responseFrom, err = krpc.conn.ReadFromUDP(buffer); err != nil || bufSize == 0 {
@@ -61,30 +64,47 @@ func (krpc *KRPC)ReadLoop() {
 		// 打印应答
 		fmt.Println("read:", response)
 
-		// 解析bencode字典第一层中的transactionId
-		if respDict, tranOk = response.(map[string]interface{}); !tranOk {
+		// 解析bencode字典第一层中的t(请求ID)、y(类型：请求，应答，错误)
+		if respDict, typeOk = response.(map[string]interface{}); !typeOk {
 			continue
 		}
 
-		if iTranId, exist = respDict["t"]; !exist { // t字段存在
+		if iField, exist = respDict["t"]; !exist { // t字段
 			continue
 		}
-		if transactionId, tranOk = iTranId.(string); !tranOk { // 是字符串
+		if transactionId, typeOk = iField.(string); !typeOk {
 			continue
 		}
-		// 寻找请求上下文
-		{
-			krpc.mutex.Lock()
-			if ctx, exist = krpc.reqContext[transactionId]; exist {
-				delete(krpc.reqContext, transactionId)
+
+		if iField, exist = respDict["y"]; !exist { // y字段
+			continue
+		}
+		if msgType, typeOk = iField.(string); !typeOk {
+			continue
+		}
+
+		// 应答
+		if msgType == "r" {
+			// 寻找请求上下文
+			{
+				krpc.mutex.Lock()
+				if ctx, exist = krpc.reqContext[transactionId]; exist {
+					delete(krpc.reqContext, transactionId)
+				}
+				krpc.mutex.Unlock()
 			}
-			krpc.mutex.Unlock()
-		}
-		// 唤醒调用者
-		if ctx != nil {
-			ctx.response = response
-			ctx.responseFrom = responseFrom
-			ctx.finishNotify <- 1
+			// 唤醒调用者进一步处理
+			if ctx != nil {
+				ctx.response = response
+				ctx.responseFrom = responseFrom
+				ctx.finishNotify <- 1
+			}
+		} else if msgType == "e" { // 错误
+
+		} else if msgType == "q" { // 请求
+
+		} else { // 未知
+
 		}
 	}
 }
@@ -92,14 +112,11 @@ func (krpc *KRPC)ReadLoop() {
 func (krpc *KRPC) SendLoop() {
 	var (
 		ctx *KRPCContext
-		sentSize int
-		err error
 	)
 	for {
 		select {
 		case ctx = <-krpc.reqQueue:
-			sentSize, err = krpc.conn.WriteToUDP(ctx.encoded, ctx.requestTo)
-			fmt.Println("sent:", sentSize, err)
+			krpc.conn.WriteToUDP(ctx.encoded, ctx.requestTo)
 		}
 	}
 }
