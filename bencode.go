@@ -13,7 +13,7 @@ import (
 /**
 	维基百科：https://zh.wikipedia.org/wiki/Bencode
 
-	字符串(utf-8)：  长度:字符串
+	字符串(允许二进制)：  长度:字符串
 	整形：i数字e
 	列表：l嵌套内容e, 嵌套内容为其他bencode编码的对象
 	字典：d嵌套内容e, 嵌套内容为成对出现的beancode编码的string key和对象
@@ -215,27 +215,13 @@ func decodeString(data []byte) (decData interface{}, size int, err error) {
 		goto ERROR
 	}
 
-	// :右侧必须有valueLen个字节, 并且是合法utf-8
+	// :右侧必须有valueLen个字节
 	if endIndex + valueLen + 1 > len(data) {
 		goto ERROR
 	}
 
 	value = string(data[endIndex + 1 : endIndex + 1 + valueLen])
-	size = len(value) + 2
-
-	// 反向校验utf-8合法性
-	data = data[endIndex + 1 : endIndex + 1 + valueLen]
-	for {
-		if char, size := utf8.DecodeLastRune(data[:valueLen]); char == utf8.RuneError {
-			if size != 0 { // utf-8序列不合法
-				goto ERROR
-			} else { // 全部解析完成
-				break
-			}
-		} else {
-			valueLen -= size
-		}
-	}
+	size = endIndex + 1 + len(value)
 	return value, size, nil
 ERROR:
 	return nil, 0, errors.New("invalid string")
