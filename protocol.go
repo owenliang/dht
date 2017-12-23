@@ -136,10 +136,9 @@ func ParsePeerInfo(peerInfo string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d.%d:%d", peerInfo[0], peerInfo[1], peerInfo[2], peerInfo[3], port), nil
 }
 
-func ParsePingResponse(transactionId string, benDict map[string]interface{}) (response *PingResponse, err error) {
+func ParsePingResponse(transactionId string, resDict map[string]interface{}) (response *PingResponse, err error) {
 	var (
 		iField interface{}
-		resDict map[string]interface{}
 		exist bool
 		typeOk bool
 	)
@@ -148,12 +147,6 @@ func ParsePingResponse(transactionId string, benDict map[string]interface{}) (re
 	response.TransactionId = transactionId
 	response.Type = "r"
 
-	if iField, exist = benDict["r"]; !exist {
-		goto ERROR
-	}
-	if resDict, typeOk = iField.(map[string]interface{}); !typeOk {
-		goto ERROR
-	}
 	if iField, exist = resDict["id"]; !exist {
 		goto ERROR
 	}
@@ -165,10 +158,9 @@ ERROR:
 	return nil, errors.New("invalid ping response")
 }
 
-func ParseFindNodeResponse(transactionId string, benDict map[string]interface{}) (response *FindNodeResponse, err error) {
+func ParseFindNodeResponse(transactionId string, resDict map[string]interface{}) (response *FindNodeResponse, err error) {
 	var (
 		iField interface{}
-		resDict map[string]interface{}
 		exist bool
 		typeOk bool
 		nodes string
@@ -181,13 +173,6 @@ func ParseFindNodeResponse(transactionId string, benDict map[string]interface{})
 	response.TransactionId = transactionId
 	response.Type = "r"
 	response.Nodes = make([]*CompactNode, 0)
-
-	if iField, exist = benDict["r"]; !exist {
-		goto ERROR
-	}
-	if resDict, typeOk = iField.(map[string]interface{}); !typeOk {
-		goto ERROR
-	}
 
 	if iField, exist = resDict["id"]; !exist {
 		goto ERROR
@@ -230,10 +215,9 @@ ERROR:
 	return nil, errors.New("invalid find_node response")
 }
 
-func ParseGetPeersResponse(transactionId string, benDict map[string]interface{}) (response *GetPeersResponse, err error) {
+func ParseGetPeersResponse(transactionId string, resDict map[string]interface{}) (response *GetPeersResponse, err error) {
 	var (
 		iField interface{}
-		resDict map[string]interface{}
 		exist bool
 		typeOk bool
 		nodes string
@@ -249,13 +233,6 @@ func ParseGetPeersResponse(transactionId string, benDict map[string]interface{})
 	response.Type = "r"
 	response.Nodes = make([]*CompactNode, 0)
 	response.Values = make([]string, 0)
-
-	if iField, exist = benDict["r"]; !exist {
-		goto ERROR
-	}
-	if resDict, typeOk = iField.(map[string]interface{}); !typeOk {
-		goto ERROR
-	}
 
 	if iField, exist = resDict["id"]; !exist {
 		goto ERROR

@@ -17,7 +17,7 @@ type KRPCContext struct {
 
 	errCode int // 错误码
 	errMsg string // 错误信息
-	response map[string]interface{} // 应答字典
+	resDict map[string]interface{} // r字典
 	responseFrom *net.UDPAddr // 发送应答的地址
 
 	finishNotify chan byte // 收到应答后唤醒
@@ -35,8 +35,19 @@ type KRPC struct {
 func (krpc *KRPC)HandleResponse(transactionId string, benDict map[string]interface{},  packetFrom *net.UDPAddr) {
 	var (
 		ctx *KRPCContext
+		resDict map[string]interface{}
+		iField interface{}
 		exist bool
+		typeOk bool
 	)
+
+	if iField, exist = benDict["r"]; !exist {
+		return
+	}
+	if resDict, typeOk = iField.(map[string]interface{}); !typeOk {
+		return
+	}
+
 	// 寻找请求上下文
 	{
 		krpc.mutex.Lock()
@@ -47,7 +58,7 @@ func (krpc *KRPC)HandleResponse(transactionId string, benDict map[string]interfa
 	}
 	// 唤醒调用者进一步处理
 	if ctx != nil {
-		ctx.response = benDict
+		ctx.resDict = resDict
 		ctx.responseFrom = packetFrom
 		ctx.finishNotify <- 1
 	}
@@ -95,14 +106,53 @@ func (krpc *KRPC)HandleError(transactionId string, benDict map[string]interface{
 	if ctx != nil {
 		ctx.errCode = errCode
 		ctx.errMsg = errMsg
-		ctx.response = benDict
+		ctx.resDict = nil
 		ctx.responseFrom = packetFrom
 		ctx.finishNotify <- 1
 	}
 }
 
 func (krpc *KRPC)HandleRequest(transactionId string, benDict map[string]interface{},  packetFrom *net.UDPAddr) {
-	fmt.Println("[TODO]Ignore Request", benDict)
+	var (
+		iField interface{}
+		method string
+		exist bool
+		typeOk bool
+		addDict map[string]interface{}
+		respBytes []byte
+		err error
+	)
+
+	if iField, exist = benDict["q"]; !exist {
+		return
+	}
+	if method, typeOk = iField.(string); !typeOk {
+		return
+	}
+
+	if iField, exist = benDict["a"]; !exist {
+		return
+	}
+	if addDict, typeOk = iField.(map[string]interface{}); !typeOk {
+		return
+	}
+
+	fmt.Println("HandleRequest method=" + method)
+	if method == "ping" {
+		respBytes, err = HandlePing(transactionId, addDict,  packetFrom)
+		fmt.Println(respBytes)
+	} else if method == "find_node" {
+
+	} else if method == "get_peers" {
+
+	} else if method == "announce_peer" {
+
+	} else {
+		return
+	}
+	if err != nil {
+		krpc.conn.WriteToUDP(respBytes, packetFrom)
+	}
 }
 
 func (krpc *KRPC)HandlePacket(data []byte, packetFrom *net.UDPAddr) {
@@ -280,7 +330,7 @@ func (krpc *KRPC) Ping(userCtx context.Context, request *PingRequest, address st
 	if ctx.errCode != 0 {
 		return nil, errors.New(ctx.errMsg)
 	}
-	response, err = ParsePingResponse(ctx.transactionId, ctx.response)
+	response, err = ParsePingResponse(ctx.transactionId, ctx.resDict)
 	return
 }
 
@@ -309,7 +359,7 @@ func (krpc *KRPC) FindNode(userCtx context.Context, request *FindNodeRequest, ad
 	if ctx.errCode != 0 {
 		return nil, errors.New(ctx.errMsg)
 	}
-	response, err = ParseFindNodeResponse(ctx.transactionId, ctx.response)
+	response, err = ParseFindNodeResponse(ctx.transactionId, ctx.resDict)
 	return
 }
 
@@ -334,7 +384,7 @@ func (krpc *KRPC) GetPeers(userCtx context.Context, request *GetPeersRequest, ad
 	if ctx, err = krpc.BurstRequest(userCtx, request.TransactionId, request, bytes, address); err != nil {
 		return
 	}
-	response, err = ParseGetPeersResponse(ctx.transactionId, ctx.response)
+	response, err = ParseGetPeersResponse(ctx.transactionId, ctx.resDict)
 	return
 }
 
@@ -368,6 +418,6 @@ func (krpc *KRPC) AnnouncePeer(userCtx context.Context, request *AnnouncePeerReq
 	if ctx, err = krpc.BurstRequest(userCtx, request.TransactionId, request, bytes, address); err != nil {
 		return
 	}
-	response, err = ParseAnnouncePeerResponse(ctx.transactionId, ctx.response)
+	response, err = ParseAnnouncePeerResponse(ctx.transactionId, ctx.resDict)
 	return
 }
