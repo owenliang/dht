@@ -7,6 +7,7 @@ import (
 	"time"
 	"errors"
 	"fmt"
+	"runtime"
 )
 
 type KRPCContext struct {
@@ -23,13 +24,27 @@ type KRPCContext struct {
 	finishNotify chan byte // 收到应答后唤醒
 }
 
+type KRPCResponse struct {
+	encoded []byte // 序列化应答
+	responseTo *net.UDPAddr // 回复地址
+}
+
+type KRPCPacket struct {
+	encoded []byte // 序列化的包
+	packetFrom *net.UDPAddr // 来源地址
+}
+
 type KRPC struct {
 	conn *net.UDPConn
 
 	mutex sync.Mutex
 	reqContext map[string]*KRPCContext // 等待应答的请求
 
-	reqQueue chan *KRPCContext // 请求队列
+	reqQueue chan *KRPCContext // 发送请求队列
+	resQueue chan *KRPCResponse // 发送应答队列
+
+	procQueue chan *KRPCPacket // 处理外来包队列
+	procPending chan byte // 请求处理堆积控制
 }
 
 func (krpc *KRPC)HandleResponse(transactionId string, benDict map[string]interface{},  packetFrom *net.UDPAddr) {
@@ -137,22 +152,32 @@ func (krpc *KRPC)HandleRequest(transactionId string, benDict map[string]interfac
 		return
 	}
 
-	fmt.Println("HandleRequest method=" + method)
-	if method == "ping" {
-		respBytes, err = HandlePing(transactionId, addDict,  packetFrom)
-		fmt.Println(respBytes)
-	} else if method == "find_node" {
-
-	} else if method == "get_peers" {
-
-	} else if method == "announce_peer" {
-
-	} else {
-		return
+	select {
+		case krpc.procPending <- 1: // 增加1个处理中的请求
+		default:
+			return
 	}
-	if err != nil {
-		krpc.conn.WriteToUDP(respBytes, packetFrom)
-	}
+	// 并发协程处理
+	go func() {
+		fmt.Println("HandleRequest method=" + method)
+		if method == "ping" {
+			respBytes, err = HandlePing(transactionId, addDict, packetFrom)
+			fmt.Println(string(respBytes))
+		} else if method == "find_node" {
+
+		} else if method == "get_peers" {
+
+		} else if method == "announce_peer" {
+
+		} else {
+			goto END
+		}
+		if err != nil {
+			krpc.resQueue <- &KRPCResponse{encoded: respBytes, responseTo: packetFrom}
+		}
+		END:
+		<- krpc.procPending // 处理完释放计数
+	}()
 }
 
 func (krpc *KRPC)HandlePacket(data []byte, packetFrom *net.UDPAddr) {
@@ -209,6 +234,16 @@ INVALID:
 	fmt.Println(data)
 }
 
+func (krpc *KRPC)ProcLoop() {
+	var (
+		packet *KRPCPacket
+	)
+	for {
+		packet = <- krpc.procQueue
+		krpc.HandlePacket(packet.encoded, packet.packetFrom)
+	}
+}
+
 func (krpc *KRPC)ReadLoop() {
 	var (
 		err error
@@ -225,33 +260,44 @@ func (krpc *KRPC)ReadLoop() {
 		data := make([]byte, bufSize)
 		copy(data, buffer[:bufSize])
 
-		krpc.HandlePacket(data, packetFrom)
+		packet := &KRPCPacket{encoded: data, packetFrom: packetFrom}
+
+		krpc.procQueue <- packet
 	}
 }
 
 func (krpc *KRPC) SendLoop() {
 	var (
 		ctx *KRPCContext
+		resp *KRPCResponse
 	)
 	for {
 		select {
 		case ctx = <-krpc.reqQueue:
 			krpc.conn.WriteToUDP(ctx.encoded, ctx.requestTo)
+		case resp = <- krpc.resQueue:
+			krpc.conn.WriteToUDP(resp.encoded, resp.responseTo)
 		}
 	}
 }
 
-func CreateKPRC() (kprc *KRPC, err error){
-	krpc := KRPC{}
+func CreateKPRC() (krpc *KRPC, err error){
+	krpc = &KRPC{}
 	addr := net.UDPAddr{net.IPv4(0, 0, 0,0), 6881, ""}
 	if krpc.conn, err = net.ListenUDP("udp4", &addr); err != nil {
 		return nil, err
 	}
 	krpc.reqContext = make(map[string]*KRPCContext)
 	krpc.reqQueue = make(chan *KRPCContext, 100000)
+	krpc.resQueue = make(chan *KRPCResponse, 100000)
+	krpc.procQueue = make(chan *KRPCPacket, 100000)
+	krpc.procPending = make(chan byte, 100000)
 	go krpc.SendLoop()
 	go krpc.ReadLoop()
-	return &krpc, nil
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go krpc.ProcLoop()
+	}
+	return krpc, nil
 }
 
 func (krpc *KRPC) BurstRequest(userCtx context.Context, transactionId string, request interface{}, encoded []byte, address string) (ctxt *KRPCContext, err error) {

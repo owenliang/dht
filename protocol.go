@@ -286,7 +286,7 @@ func ParseAnnouncePeerResponse(transactionId string, benDict map[string]interfac
 }
 
 func (response *PingResponse) String() string {
-	ret := "---PingResponse---\n"
+	ret := "\n---PingResponse---\n"
 	ret += "T=" + hex.EncodeToString([]byte(response.TransactionId)) + "\n"
 	ret += "Id=" + hex.EncodeToString([]byte(response.Id)) + "\n"
 	ret += "---------------------\n"
@@ -299,7 +299,7 @@ func (compactNode *CompactNode) String() string {
 }
 
 func (response *FindNodeResponse) String() string {
-	ret := "---FindNodeResponse---\n"
+	ret := "\n---FindNodeResponse---\n"
 	ret += "T=" + hex.EncodeToString([]byte(response.TransactionId)) + "\n"
 	ret += "Id=" + hex.EncodeToString([]byte(response.Id)) + "\n"
 	if response.Target != nil {
@@ -318,7 +318,7 @@ func (response *FindNodeResponse) String() string {
 
 
 func (response *GetPeersResponse) String() string {
-	ret := "---GetPeersResponse---\n"
+	ret := "\n---GetPeersResponse---\n"
 	ret += "T=" + hex.EncodeToString([]byte(response.TransactionId)) + "\n"
 	ret += "Id=" + hex.EncodeToString([]byte(response.Id)) + "\n"
 	if len(response.Values) != 0 {
