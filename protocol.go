@@ -202,7 +202,7 @@ func ParseFindNodeResponse(transactionId string, resDict map[string]interface{})
 		for i := 0; i <= len(nodes); i++  {
 			if i % 26 == 0 && i != 0 {
 				nodesSplit = nodes[i - 26:i]
-				// target解析compactNode
+				// closest nodes解析compactNode
 				if compactNode, err = ParseCompactNode(nodesSplit); err != nil {
 					goto ERROR
 				}
@@ -349,12 +349,13 @@ func GenNodeId() string {
 }
 
 // 我的DHT NODE ID
-var myNodeId string = ""
+var myNodeId string
+var initMyNodeId sync.Once
 
 func MyNodeId() string {
-	if len(myNodeId) == 0 {
+	initMyNodeId.Do(func() {
 		myNodeId = GenNodeId()
-	}
+	})
 	return myNodeId
 }
 
