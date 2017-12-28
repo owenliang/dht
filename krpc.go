@@ -91,8 +91,6 @@ func (krpc *KRPC)HandleError(transactionId string, benDict map[string]interface{
 		errMsg string
 	)
 
-	fmt.Println("HandleError")
-
 	if iField, exist = benDict["e"]; !exist {
 		return
 	}
