@@ -6,7 +6,25 @@ import (
 	"fmt"
 )
 
+func ActiveNode(addDict map[string]interface{},  packetFrom *net.UDPAddr) {
+	var (
+		iField interface{}
+		id string
+		exist bool
+		typeOk bool
+	)
+	if iField, exist = addDict["id"]; !exist {
+		return
+	}
+	if id, typeOk = iField.(string); !typeOk {
+		return
+	}
+	GetRoutingTable().InsertNode(NewCompactNode(id, packetFrom))
+}
+
 func HandlePing(transactionId string, addDict map[string]interface{},  packetFrom *net.UDPAddr) ([]byte, error)  {
+	ActiveNode(addDict, packetFrom)
+
 	resp := &PingResponse{}
 	resp.TransactionId = transactionId
 	return resp.Serialize()
@@ -20,6 +38,8 @@ func HandleFindNode(transactionId string, addDict map[string]interface{},  packe
 		typeOk bool
 		targetNode *CompactNode
 	)
+
+	ActiveNode(addDict, packetFrom)
 
 	resp := &FindNodeResponse{}
 	resp.TransactionId = transactionId
@@ -49,6 +69,8 @@ func HandleGetPeer(transactionId string, addDict map[string]interface{},  packet
 		typeOk bool
 	)
 
+	ActiveNode(addDict, packetFrom)
+
 	resp := &GetPeersResponse{}
 	resp.TransactionId = transactionId
 
@@ -76,6 +98,8 @@ func HandleAnnouncePeer(transactionId string, addDict map[string]interface{},  p
 		exist bool
 		typeOk bool
 	)
+
+	ActiveNode(addDict, packetFrom)
 
 	resp := &AnnouncePeerResponse{}
 	resp.TransactionId = transactionId

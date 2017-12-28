@@ -38,14 +38,16 @@ func main()  {
 		}
 
 		findNodeReq = dht.NewFindNodeRequest()
-		findNodeReq.Target = dht.MyNodeId()
+		findNodeReq.Target = dht.GenNodeId()
 		if findNodeResp, err = krpc.FindNode(context.Background(), findNodeReq, node); err == nil {
 			for _, compactNode = range findNodeResp.Nodes {
+				dht.GetRoutingTable().InsertNode(compactNode)
 				select {
 				case nodes <- compactNode.Address:
-					dht.GetRoutingTable().InsertNode(compactNode)
-					// fmt.Println(compactNode)
+					fmt.Println(compactNode)
 				default:
+					<- nodes
+					nodes <- compactNode.Address
 				}
 			}
 		}

@@ -324,7 +324,7 @@ func (krpc *KRPC) BurstRequest(userCtx context.Context, transactionId string, re
 		krpc.mutex.Unlock()
 	}
 	// 启动RPC超时
-	timeoutCtx, cancelFunc := context.WithTimeout(userCtx, time.Duration(5) * time.Second)
+	timeoutCtx, cancelFunc := context.WithTimeout(userCtx, time.Duration(1) * time.Second)
 	defer cancelFunc()
 	select {
 	case krpc.reqQueue <- ctx:  // 排队请求

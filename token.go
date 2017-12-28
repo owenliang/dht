@@ -37,7 +37,7 @@ var initTokenMgrOnce sync.Once
 // 5分钟刷新一次token, 生成的token10分钟内有效
 func GetTokenManager() *TokenManager {
 	initTokenMgrOnce.Do(func() {
-		myTokenMgr := &TokenManager{}
+		myTokenMgr = &TokenManager{}
 		myTokenMgr.tokens[0] = genToken()
 		myTokenMgr.tokens[1] = genToken()
 		go myTokenMgr.refreshToken()

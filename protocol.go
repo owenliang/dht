@@ -80,6 +80,13 @@ type AnnouncePeerResponse struct {
 	BaseResponse
 }
 
+func NewCompactNode(id string, addr *net.UDPAddr) (compactNode *CompactNode) {
+	compactNode = &CompactNode{}
+	compactNode.Id = id
+	compactNode.Address = fmt.Sprintf("%d.%d.%d.%d:%d", addr.IP[0], addr.IP[1], addr.IP[2], addr.IP[3], addr.Port)
+	return compactNode
+}
+
 func NewPingRequest() (request *PingRequest) {
 	request = &PingRequest{}
 	request.TransactionId = GenTransactionId()
@@ -360,6 +367,8 @@ func (response *GetPeersResponse) Serialize() (bytes []byte, err error) {
 
 	r["id"] = MyNodeId()
 	r["token"] = GetTokenManager().GetToken()
+
+	resp["r"] = r
 	return Encode(resp)
 }
 
@@ -371,6 +380,8 @@ func (response *AnnouncePeerResponse) Serialize() ([]byte, error) {
 	resp["t"] = response.TransactionId
 	resp["y"] = "r"
 	r["id"] = MyNodeId()
+
+	resp["r"] = r
 	return Encode(resp)
 }
 
