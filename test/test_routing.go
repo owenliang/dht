@@ -6,7 +6,7 @@ import (
 )
 
 func main()  {
-	rt := dht.CreateRoutingTable()
+	rt := dht.GetRoutingTable()
 	size := 0
 	for   {
 		rt.InsertNode(&dht.CompactNode{"", dht.GenNodeId()})

@@ -116,10 +116,16 @@ func rootBucket() (root *Bucket) {
 	return
 }
 
-func CreateRoutingTable() (rt *RoutingTable) {
-	rt = &RoutingTable{}
-	rt.buckets = append(rt.buckets, rootBucket())
-	return
+// 路由表单例
+var routingTable *RoutingTable
+var initRoutingTableOnce sync.Once
+
+func GetRoutingTable() (*RoutingTable) {
+	initRoutingTableOnce.Do(func () {
+		routingTable = &RoutingTable{}
+		routingTable.buckets = append(routingTable.buckets, rootBucket())
+	})
+	return routingTable
 }
 
 func (rt *RoutingTable) splitBucket(idx int) {
@@ -210,6 +216,27 @@ func (rt *RoutingTable) Fail(nodeId string) {
 			}
 		}
 	}
+}
+
+func (rt *RoutingTable) FindNode(nodeId string) *CompactNode {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
+
+	// 永远不返回自己
+	if nodeId == MyNodeId() {
+		return nil
+	}
+
+	idx := rt.findBucket(nodeId)
+	if idx < 0 {
+		return nil
+	}
+
+	nodes := rt.buckets[idx].nodes
+	if node, exist := nodes[nodeId]; exist {
+		return node.info
+	}
+	return nil
 }
 
 func (rt *RoutingTable) ClosestNodes(nodeId string) (nodes []*CompactNode) {

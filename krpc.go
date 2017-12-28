@@ -162,16 +162,16 @@ func (krpc *KRPC)HandleRequest(transactionId string, benDict map[string]interfac
 		fmt.Println("HandleRequest method=" + method)
 		if method == "ping" {
 			respBytes, err = HandlePing(transactionId, addDict, packetFrom)
-			fmt.Println(string(respBytes))
 		} else if method == "find_node" {
-
+			respBytes, err = HandleFindNode(transactionId, addDict, packetFrom)
 		} else if method == "get_peers" {
-
+			respBytes, err = HandleGetPeer(transactionId, addDict, packetFrom)
 		} else if method == "announce_peer" {
-
+			respBytes, err = HandleAnnouncePeer(transactionId, addDict, packetFrom)
 		} else {
 			goto END
 		}
+		fmt.Println(method, string(respBytes), err)
 		if err != nil {
 			krpc.resQueue <- &KRPCResponse{encoded: respBytes, responseTo: packetFrom}
 		}
@@ -376,7 +376,7 @@ func (krpc *KRPC) Ping(userCtx context.Context, request *PingRequest, address st
 	if ctx.errCode != 0 {
 		return nil, errors.New(ctx.errMsg)
 	}
-	response, err = ParsePingResponse(ctx.transactionId, ctx.resDict)
+	response, err = UnserializePingResponse(ctx.transactionId, ctx.resDict)
 	return
 }
 
@@ -405,7 +405,7 @@ func (krpc *KRPC) FindNode(userCtx context.Context, request *FindNodeRequest, ad
 	if ctx.errCode != 0 {
 		return nil, errors.New(ctx.errMsg)
 	}
-	response, err = ParseFindNodeResponse(ctx.transactionId, ctx.resDict)
+	response, err = UnserializeFindNodeResponse(ctx.transactionId, ctx.resDict)
 	return
 }
 
@@ -430,7 +430,7 @@ func (krpc *KRPC) GetPeers(userCtx context.Context, request *GetPeersRequest, ad
 	if ctx, err = krpc.BurstRequest(userCtx, request.TransactionId, request, bytes, address); err != nil {
 		return
 	}
-	response, err = ParseGetPeersResponse(ctx.transactionId, ctx.resDict)
+	response, err = UnserializeGetPeersResponse(ctx.transactionId, ctx.resDict)
 	return
 }
 
@@ -464,6 +464,6 @@ func (krpc *KRPC) AnnouncePeer(userCtx context.Context, request *AnnouncePeerReq
 	if ctx, err = krpc.BurstRequest(userCtx, request.TransactionId, request, bytes, address); err != nil {
 		return
 	}
-	response, err = ParseAnnouncePeerResponse(ctx.transactionId, ctx.resDict)
+	response, err = UnserializeAnnouncePeerResponse(ctx.transactionId, ctx.resDict)
 	return
 }

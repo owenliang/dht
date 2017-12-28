@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"encoding/hex"
+	"net"
 )
 
 type CompactNode struct {
@@ -50,7 +51,6 @@ type FindNodeRequest struct {
 
 type FindNodeResponse struct {
 	BaseResponse
-	Target *CompactNode
 	Nodes []*CompactNode
 }
 
@@ -117,7 +117,7 @@ func NewAnnouncePeerRequest() (request *AnnouncePeerRequest) {
 	return request
 }
 
-func ParseCompactNode(nodeInfo string) (*CompactNode, error) {
+func UnserializeCompactNode(nodeInfo string) (*CompactNode, error) {
 	if len(nodeInfo) != 26 {
 		return nil, errors.New("compact node invalid")
 	}
@@ -128,7 +128,7 @@ func ParseCompactNode(nodeInfo string) (*CompactNode, error) {
 	return compactNode, nil
 }
 
-func ParsePeerInfo(peerInfo string) (string, error) {
+func UnserializePeerInfo(peerInfo string) (string, error) {
 	if len(peerInfo) != 6 {
 		return "", errors.New("compact peer invalid")
 	}
@@ -136,7 +136,7 @@ func ParsePeerInfo(peerInfo string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d.%d:%d", peerInfo[0], peerInfo[1], peerInfo[2], peerInfo[3], port), nil
 }
 
-func ParsePingResponse(transactionId string, resDict map[string]interface{}) (response *PingResponse, err error) {
+func UnserializePingResponse(transactionId string, resDict map[string]interface{}) (response *PingResponse, err error) {
 	var (
 		iField interface{}
 		exist bool
@@ -158,7 +158,7 @@ ERROR:
 	return nil, errors.New("invalid ping response")
 }
 
-func ParseFindNodeResponse(transactionId string, resDict map[string]interface{}) (response *FindNodeResponse, err error) {
+func UnserializeFindNodeResponse(transactionId string, resDict map[string]interface{}) (response *FindNodeResponse, err error) {
 	var (
 		iField interface{}
 		exist bool
@@ -166,7 +166,6 @@ func ParseFindNodeResponse(transactionId string, resDict map[string]interface{})
 		nodes string
 		compactNode *CompactNode
 		nodesSplit string
-		target string
 	)
 
 	response = &FindNodeResponse{}
@@ -181,17 +180,6 @@ func ParseFindNodeResponse(transactionId string, resDict map[string]interface{})
 		goto ERROR
 	}
 
-	if iField, exist = resDict["target"]; exist {
-		if target, typeOk = iField.(string); !typeOk {
-			goto ERROR
-		}
-		// target解析compactNode
-		if compactNode, err = ParseCompactNode(target); err != nil {
-			goto ERROR
-		}
-		response.Target = compactNode
-	}
-
 	if iField, exist = resDict["nodes"]; exist {
 		if nodes, typeOk = iField.(string); !typeOk {
 			goto ERROR
@@ -203,7 +191,7 @@ func ParseFindNodeResponse(transactionId string, resDict map[string]interface{})
 			if i % 26 == 0 && i != 0 {
 				nodesSplit = nodes[i - 26:i]
 				// closest nodes解析compactNode
-				if compactNode, err = ParseCompactNode(nodesSplit); err != nil {
+				if compactNode, err = UnserializeCompactNode(nodesSplit); err != nil {
 					goto ERROR
 				}
 				response.Nodes = append(response.Nodes, compactNode)
@@ -215,7 +203,7 @@ ERROR:
 	return nil, errors.New("invalid find_node response")
 }
 
-func ParseGetPeersResponse(transactionId string, resDict map[string]interface{}) (response *GetPeersResponse, err error) {
+func UnserializeGetPeersResponse(transactionId string, resDict map[string]interface{}) (response *GetPeersResponse, err error) {
 	var (
 		iField interface{}
 		exist bool
@@ -249,7 +237,7 @@ func ParseGetPeersResponse(transactionId string, resDict map[string]interface{})
 			if peerInfo, typeOk = peers[i].(string); !typeOk {
 				goto ERROR
 			}
-			address, err = ParsePeerInfo(peerInfo)
+			address, err = UnserializePeerInfo(peerInfo)
 			if err != nil {
 				goto ERROR
 			}
@@ -268,7 +256,7 @@ func ParseGetPeersResponse(transactionId string, resDict map[string]interface{})
 			if i % 26 == 0 && i != 0 {
 				nodesSplit = nodes[i - 26:i]
 				// target解析compactNode
-				if compactNode, err = ParseCompactNode(nodesSplit); err != nil {
+				if compactNode, err = UnserializeCompactNode(nodesSplit); err != nil {
 					goto ERROR
 				}
 				response.Nodes = append(response.Nodes, compactNode)
@@ -280,9 +268,110 @@ ERROR:
 	return nil, errors.New("invalid find_node response")
 }
 
-func ParseAnnouncePeerResponse(transactionId string, benDict map[string]interface{}) (response *AnnouncePeerResponse, err error) {
+func UnserializeAnnouncePeerResponse(transactionId string, benDict map[string]interface{}) (response *AnnouncePeerResponse, err error) {
 	err = errors.New("not implement")
 	return
+}
+
+func (node *CompactNode) Serialize() (bytes []byte, err error) {
+	var (
+		addr *net.UDPAddr
+	)
+	if addr, err = net.ResolveUDPAddr("udp", node.Address); err != nil {
+		return
+	}
+	bytes = make([]byte, 26)
+	copy(bytes, node.Id)
+	copy(bytes[20:24], addr.IP)
+	binary.BigEndian.PutUint16(bytes[24:26], uint16(addr.Port))
+	return bytes, nil
+}
+
+func (response *PingResponse) Serialize() ([]byte, error){
+	resp := map[string]interface{}{}
+
+	resp["t"] = response.TransactionId
+	resp["y"] = "r"
+
+	r := map[string]interface{}{}
+	r["id"] = MyNodeId()
+
+	resp["r"] = r
+	return Encode(resp)
+}
+
+func (response *FindNodeResponse) Serialize() (bytes []byte, err error){
+	var (
+		compactNode *CompactNode
+		compactNodeBytes []byte
+		resp = map[string]interface{}{}
+		r = map[string]interface{}{}
+		nodesBytes []byte = nil
+	)
+
+	resp["t"] = response.TransactionId
+	resp["y"] = "r"
+
+	r["id"] = MyNodeId()
+	for _, compactNode = range response.Nodes {
+		if compactNodeBytes, err = compactNode.Serialize(); err == nil {
+			nodesBytes = append(	nodesBytes, compactNodeBytes...)
+		}
+	}
+	r["nodes"] = string(nodesBytes)
+
+	resp["r"] = r
+	return Encode(resp)
+}
+
+func (response *GetPeersResponse) Serialize() (bytes []byte, err error) {
+	var (
+		addr *net.UDPAddr
+		compactNode *CompactNode
+		compactNodeBytes []byte
+		resp = map[string]interface{}{}
+		r = map[string]interface{}{}
+		nodesBytes []byte = nil
+		peerInfos  = make([]string, 0)
+		peerInfo string
+	)
+	resp["t"] = response.TransactionId
+	resp["y"] = "r"
+
+	var compactPeerInfo [6]byte
+	for _, peerInfo = range response.Values {
+		if addr, err = net.ResolveUDPAddr("udp", peerInfo); err != nil {
+			return
+		}
+		copy(compactPeerInfo[0:4], addr.IP)
+		binary.BigEndian.PutUint16(bytes[4:6], uint16(addr.Port))
+		peerInfos = append(peerInfos, string(compactPeerInfo[:]))
+	}
+	if len(peerInfos) > 0 {
+		r["values"] = peerInfos
+	} else {
+		for _, compactNode = range response.Nodes {
+			if compactNodeBytes, err = compactNode.Serialize(); err == nil {
+				nodesBytes = append(	nodesBytes, compactNodeBytes...)
+			}
+		}
+		r["nodes"] = string(nodesBytes)
+	}
+
+	r["id"] = MyNodeId()
+	r["token"] = GetTokenManager().GetToken()
+	return Encode(resp)
+}
+
+func (response *AnnouncePeerResponse) Serialize() ([]byte, error) {
+	var (
+		resp = map[string]interface{}{}
+		r = map[string]interface{}{}
+	)
+	resp["t"] = response.TransactionId
+	resp["y"] = "r"
+	r["id"] = MyNodeId()
+	return Encode(resp)
 }
 
 func (response *PingResponse) String() string {
@@ -302,10 +391,6 @@ func (response *FindNodeResponse) String() string {
 	ret := "\n---FindNodeResponse---\n"
 	ret += "T=" + hex.EncodeToString([]byte(response.TransactionId)) + "\n"
 	ret += "Id=" + hex.EncodeToString([]byte(response.Id)) + "\n"
-	if response.Target != nil {
-		ret += "Target=\n"
-		ret += "->"+ response.Target.String()
-	}
 	if len(response.Nodes) != 0 {
 		ret += "Nodes=\n"
 		for _, node := range response.Nodes {

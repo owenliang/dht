@@ -31,13 +31,18 @@ func (mgr *TokenManager)refreshToken() {
 	}
 }
 
+var myTokenMgr *TokenManager
+var initTokenMgrOnce sync.Once
+
 // 5分钟刷新一次token, 生成的token10分钟内有效
-func CreateTokenManager() *TokenManager {
-	mgr := &TokenManager{}
-	mgr.tokens[0] = genToken()
-	mgr.tokens[1] = genToken()
-	go mgr.refreshToken()
-	return mgr
+func GetTokenManager() *TokenManager {
+	initTokenMgrOnce.Do(func() {
+		myTokenMgr := &TokenManager{}
+		myTokenMgr.tokens[0] = genToken()
+		myTokenMgr.tokens[1] = genToken()
+		go myTokenMgr.refreshToken()
+	})
+	return myTokenMgr
 }
 
 func (mgr *TokenManager) ValidateToken(token string) bool {
