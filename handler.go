@@ -4,6 +4,7 @@ import (
 	"net"
 	"errors"
 	"fmt"
+	"encoding/hex"
 )
 
 func ActiveNode(addDict map[string]interface{},  packetFrom *net.UDPAddr) {
@@ -148,5 +149,5 @@ func HandleAnnouncePeer(transactionId string, addDict map[string]interface{},  p
 }
 
 func HandlePeerInfo(infoHash string, ip net.IP, port int) {
-	fmt.Println("get info hash = ", infoHash, ip, port)
+	fmt.Println( "magnet:?xt=urn:btih:" + hex.EncodeToString([]byte(infoHash)))
 }

@@ -6,7 +6,6 @@ import (
 	"context"
 	"time"
 	"errors"
-	"fmt"
 	"runtime"
 )
 
@@ -157,7 +156,6 @@ func (krpc *KRPC)HandleRequest(transactionId string, benDict map[string]interfac
 	}
 	// 并发协程处理
 	go func() {
-		fmt.Println("HandleRequest method=" + method)
 		if method == "ping" {
 			respBytes, err = HandlePing(transactionId, addDict, packetFrom)
 		} else if method == "find_node" {
@@ -169,8 +167,7 @@ func (krpc *KRPC)HandleRequest(transactionId string, benDict map[string]interfac
 		} else {
 			goto END
 		}
-		fmt.Println(method, string(respBytes), err)
-		if err != nil {
+		if err == nil {
 			krpc.resQueue <- &KRPCResponse{encoded: respBytes, responseTo: packetFrom}
 		}
 		END:
@@ -229,7 +226,7 @@ func (krpc *KRPC)HandlePacket(data []byte, packetFrom *net.UDPAddr) {
 	return
 
 INVALID:
-	fmt.Println(data)
+	// fmt.Println("INVALID", string(data))
 }
 
 func (krpc *KRPC)ProcLoop() {
