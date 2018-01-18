@@ -149,5 +149,5 @@ func HandleAnnouncePeer(transactionId string, addDict map[string]interface{},  p
 }
 
 func HandlePeerInfo(infoHash string, ip net.IP, port int) {
-	fmt.Println( "magnet:?xt=urn:btih:" + hex.EncodeToString([]byte(infoHash)))
+	fmt.Println( "magnet:?xt=urn:btih:" + hex.EncodeToString([]byte(infoHash)), ip, ":", port)
 }
